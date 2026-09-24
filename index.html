@@ -763,7 +763,7 @@ async function initAudioInner(){
   setMicUI(true);
   $('micBtn').textContent='Wyłącz nasłuch';
   $('eng').textContent=`Silnik: ${engine}, ${ctx.sampleRate} Hz`;
-  startLoop();
+  startLoop();syncWake();
   return true;
 }
 const METER_FRESH_MS=300;
@@ -802,6 +802,7 @@ function teardownMic(){
   node=null;sp=null;srcNode=null;stream=null;lastDb=-120;
   setMicUI(false);
   $('micBtn').textContent='Włącz nasłuch';
+  syncWake();
 }
 document.addEventListener('visibilitychange',()=>{
   if(document.hidden){
@@ -812,6 +813,7 @@ document.addEventListener('visibilitychange',()=>{
   if(stream&&stream.getAudioTracks().some(t=>t.readyState==='ended'))teardownMic();
   autoCloseStale();renderDayBar();renderNotice();
   if(ctx&&ctx.state!=='running')ctx.resume().catch(()=>{});
+  syncWake();
 });
 /* ---------- offline (service worker) ---------- */
 if('serviceWorker' in navigator&&window.isSecureContext&&!/claude\.ai|claudeusercontent/.test(location.hostname)){
@@ -1308,14 +1310,14 @@ async function startSession(){
   if(cfg.par>0){beeps.push(beep(T+cfg.par,Math.max(1000,cfg.beepHz-900),BEEP));sess.mutes.push([cfg.par-0.03,cfg.par+BEEP+0.1]);}
   if(cfg.torchOn&&torchTrack)sess.to2=setTimeout(()=>torchPulse(300),Math.max(0,(T-ctx.currentTime)*1000-40));
   sess.to=setTimeout(()=>{if(sess&&sess.state==='wait'){sess.state='run';paintLcd();}flash();},(T-ctx.currentTime)*1000);
-  try{if(navigator.wakeLock)wakeLock=await navigator.wakeLock.request('screen');}catch(e){}
+  syncWake();
   $('results').hidden=true;
   paintLcd();paintBtn();
 }
 function stopSession(){
   clearTimeout(sess.to);clearTimeout(sess.to2);cancelPendingBeeps(sess);scheduleTorchOff();
   if(sess.shots.length)finish('stop');
-  else{sess=null;releaseWake();paintLcd();paintBtn();}
+  else{sess=null;syncWake();paintLcd();paintBtn();}
 }
 function fanfare(){
   if(!ctx)return;
@@ -1325,7 +1327,7 @@ function fanfare(){
 function finish(reason){
   clearTimeout(sess.to);clearTimeout(sess.to2);cancelPendingBeeps(sess);scheduleTorchOff();
   sess.state='done';sess.endReason=reason||'shots';
-  releaseWake();
+  syncWake();
   const h=load('st_hist',[]),n=sess.shots.length;
   const prior=h.filter(x=>x.sid===sess.sid&&x.shots.length);
   const pb=[],pbInfo=[];
@@ -1348,6 +1350,21 @@ function finish(reason){
   paintBtn();renderShooters();renderHist();renderBoard();renderDayBar();paintLcd();
 }
 function releaseWake(){try{if(wakeLock){wakeLock.release();wakeLock=null;}}catch(e){}}
+let wakePending=false;
+// Keep the screen on while the mic is listening, not only during a series, so it does not
+// lock between series. iOS drops the lock whenever the app is hidden; visibilitychange re-requests it.
+async function syncWake(){
+  if(!(micOn||busy())){releaseWake();return;}
+  if(wakeLock||wakePending||!navigator.wakeLock||document.visibilityState!=='visible')return;
+  wakePending=true;
+  try{
+    const wl=await navigator.wakeLock.request('screen');
+    wl.addEventListener('release',()=>{if(wakeLock===wl)wakeLock=null;});
+    wakeLock=wl;
+    if(!(micOn||busy()))releaseWake();
+  }catch(e){}
+  finally{wakePending=false;}
+}
 function flash(){
   const l=$('lcd'),f=$('flashAll');
   l.classList.add('flash');setTimeout(()=>l.classList.remove('flash'),400);
@@ -1386,7 +1403,7 @@ function loop(){
       if(sess.state==='run'){
         if(sess.par>0&&since>=sess.par){
           if(n)finish('time');
-          else{clearTimeout(sess.to);clearTimeout(sess.to2);scheduleTorchOff();sess=null;releaseWake();paintLcd();paintBtn();toast('Koniec czasu, brak strzałów');}
+          else{clearTimeout(sess.to);clearTimeout(sess.to2);scheduleTorchOff();sess=null;syncWake();paintLcd();paintBtn();toast('Koniec czasu, brak strzałów');}
         }else{
           let left=Infinity;
           if(sess.par>0&&sess.par-since<=3)left=sess.par-since;
