@@ -511,7 +511,7 @@ registerProcessor('shot-proc',ShotProc);`;
 /* ---------- settings ---------- */
 const DEF={cfgV:2,startMode:'random',dFixed:3,freeIdle:0,autoNext:true,torchOn:false,endSound:'double',soundPreset:'start',beepVol:100,beepWave:'sine',flashOn:true,beepHz:4000,beepMs:500,shots:8,mag:4,dMin:2,dMax:4,par:0,thrDb:-6,clipDb:-1,minClipMs:0.3,maxRiseMs:2,deadMs:80,corrMs:0};
 function load(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d;}catch(e){return d;}}
-function save(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}}
+function save(k,v){try{localStorage.setItem(k,JSON.stringify(v));return true;}catch(e){return false;}}
 const savedCfg=load('st_cfg',{});
 let cfg=Object.assign({},DEF,savedCfg);
 if(!('endSound' in savedCfg)&&savedCfg.endOn===false)cfg.endSound='off';
@@ -1328,7 +1328,7 @@ function finish(reason){
   sess.pb=pb;sess.pbInfo=pbInfo;
   if(cfg.endSound&&cfg.endSound!=='off'){if(pb.length)fanfare();else if(sess.endReason!=='time')chime(cfg.endSound);}
   h.unshift({date:sess.date,shots:sess.shots,target:sess.target,mag:sess.mag,par:sess.par,end:sess.endReason,sid:sess.sid,name:sess.sname,dayId:sess.dayId,pb,pbInfo});
-  save('st_hist',h.slice(0,1000));
+  if(!save('st_hist',h.slice(0,1000)))toast('Nie udało się zapisać serii w telefonie');
   pruneDays();
   renderResults(sess);
   if(!REDUCE&&$('results').animate)$('results').animate([{opacity:0,transform:'translateY(10px)'},{opacity:1,transform:'none'}],{duration:260,easing:'cubic-bezier(.22,.9,.3,1)'});
