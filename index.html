@@ -1222,8 +1222,15 @@ function onMsg(m){
   }
   addLog(m,note);
 }
+let starting=false;
 async function startStop(){
+  if(starting)return;
   if(sess&&(sess.state==='wait'||sess.state==='run')){stopSession();return;}
+  starting=true;paintBtn();
+  try{await startSession();}
+  finally{starting=false;paintBtn();}
+}
+async function startSession(){
   closeSheet();
   if(!(await initAudio()))return;
   if(cfg.torchOn)await ensureTorch();
@@ -1292,7 +1299,7 @@ function flash(){
 /* ---------- UI ---------- */
 function paintBtn(){
   const b=$('startBtn');const active=sess&&(sess.state==='wait'||sess.state==='run');
-  b.textContent=active?'Stop':'Start';b.classList.toggle('stop',!!active);
+  b.textContent=active?'Stop':starting?'Łączenie…':'Start';b.classList.toggle('stop',!!active);
 }
 function paintLcd(){
   const s=sess;
