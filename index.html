@@ -218,6 +218,7 @@ body.sheet-open .dock-start{max-height:0;padding-top:0;padding-bottom:0;opacity:
 .secondary{padding:10px 14px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--text);font-weight:600}
 
 .msg{background:var(--surface);border-left:4px solid var(--bad);padding:10px 12px;border-radius:8px;margin:0 0 14px;font-size:15px}
+.upd{display:block;width:100%;text-align:left;background:var(--surface);color:var(--text);border:1px solid var(--line);border-left:4px solid var(--accent);padding:10px 12px;border-radius:8px;margin:0 0 14px;font:inherit;font-size:15px;cursor:pointer}
 
 .results{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px 14px;margin-bottom:14px}
 .results h2{font-size:17px;margin:0 0 8px}
@@ -315,6 +316,7 @@ body.st-wait .lcd,body.st-run .lcd{box-shadow:0 0 0 4px rgba(255,255,255,.85),0 
   </section>
 
   <div class="shooters" id="shooters" role="tablist" aria-label="Strzelcy"></div>
+  <button type="button" id="updBtn" class="upd" hidden>Jest nowa wersja aplikacji. Stuknij, żeby ją wczytać.</button>
   <div id="msg" class="msg" hidden></div>
 
   <section class="results" id="results" hidden>
@@ -813,14 +815,24 @@ document.addEventListener('visibilitychange',()=>{
   if(stream&&stream.getAudioTracks().some(t=>t.readyState==='ended'))teardownMic();
   autoCloseStale();renderDayBar();renderNotice();
   if(ctx&&ctx.state!=='running')ctx.resume().catch(()=>{});
-  syncWake();
+  syncWake();checkForUpdate();
 });
 /* ---------- offline (service worker) ---------- */
+// Replaced with the commit id by the deploy workflow.
+const BUILD='__BUILD__';
+const BUILD_LABEL=/^__/.test(BUILD)?'lokalna':BUILD;
+let swReg=null;
 if('serviceWorker' in navigator&&window.isSecureContext&&!/claude\.ai|claudeusercontent/.test(location.hostname)){
-  navigator.serviceWorker.register('sw.js').then(()=>navigator.serviceWorker.ready).then(()=>{
-    const o=$('offline');if(o)o.textContent='Shot Timer, gotowe do pracy offline';
+  // A home-screen app on iOS can stay in memory for days, so after a deploy the new worker takes
+  // over in the background and the page offers a reload instead of switching mid-series.
+  let ctrl=navigator.serviceWorker.controller;
+  navigator.serviceWorker.addEventListener('controllerchange',()=>{if(ctrl)$('updBtn').hidden=false;ctrl=navigator.serviceWorker.controller;});
+  navigator.serviceWorker.register('sw.js').then(reg=>{swReg=reg;return navigator.serviceWorker.ready;}).then(()=>{
+    const o=$('offline');if(o)o.textContent=`Shot Timer, wersja ${BUILD_LABEL}, gotowe do pracy offline`;
   }).catch(()=>{});
 }
+function checkForUpdate(){if(swReg)swReg.update().catch(()=>{});}
+$('updBtn').addEventListener('click',()=>{if(busy()){toast('Wczytasz nową wersję po zakończeniu serii');return;}location.reload();});
 
 function beep(at,freq,dur){
   const o=ctx.createOscillator(),g=ctx.createGain();

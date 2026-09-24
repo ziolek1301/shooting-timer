@@ -1,8 +1,11 @@
-const CACHE='shot-timer-v1';
+// The deploy workflow replaces __BUILD__ with the commit id, so every deploy ships a changed
+// worker: the browser installs it, refreshes all cached files and the page offers a reload.
+const BUILD='__BUILD__';
+const CACHE='shot-timer-'+BUILD;
 const CORE=['./','./index.html','./manifest.webmanifest','./icon-180.png','./icon-192.png','./icon-512.png'];
 
 self.addEventListener('install',e=>{
-  e.waitUntil(caches.open(CACHE).then(c=>c.addAll(CORE)).then(()=>self.skipWaiting()));
+  e.waitUntil(caches.open(CACHE).then(c=>c.addAll(CORE.map(u=>new Request(u,{cache:'reload'})))).then(()=>self.skipWaiting()));
 });
 self.addEventListener('activate',e=>{
   e.waitUntil(caches.keys()
