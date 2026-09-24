@@ -1487,6 +1487,23 @@ $('resetCfg').addEventListener('click',()=>{
   if(!cfg.torchOn)stopTorch();
   toast('Przywrócono ustawienia domyślne');
 });
+// A damaged or hand-edited backup must not reach storage: one bad record crashes start-up
+// before any reset button exists, and ids end up unescaped in HTML attributes.
+function validBackup(d){
+  const isObj=x=>x!==null&&typeof x==='object'&&!Array.isArray(x);
+  const none=x=>x===undefined||x===null;
+  const isId=x=>typeof x==='string'&&/^[a-z0-9]{1,24}$/i.test(x);
+  const optId=x=>none(x)||isId(x);
+  const optNum=x=>none(x)||Number.isFinite(x);
+  const optList=(v,test)=>none(v)||(Array.isArray(v)&&v.every(test));
+  const isStr=x=>typeof x==='string';
+  const histOk=s=>isObj(s)&&Number.isFinite(s.date)&&Array.isArray(s.shots)&&s.shots.every(Number.isFinite)
+    &&optId(s.sid)&&optId(s.dayId)&&optNum(s.target)&&optNum(s.mag)&&optNum(s.par)&&optList(s.pb,isStr)&&optList(s.pbInfo,isStr);
+  return Array.isArray(d.st_hist)&&d.st_hist.every(histOk)
+    &&optList(d.st_shooters,s=>isObj(s)&&isId(s.id)&&isStr(s.name))
+    &&optList(d.st_days,x=>isObj(x)&&isId(x.id)&&Number.isFinite(x.start)&&optNum(x.end))
+    &&(none(d.st_cfg)||isObj(d.st_cfg))&&optId(d.st_active);
+}
 $('impBackup').addEventListener('click',()=>{if(busy())return;$('impFile').click();});
 $('impFile').addEventListener('change',async e=>{
   const f=e.target.files&&e.target.files[0];e.target.value='';
@@ -1494,6 +1511,7 @@ $('impFile').addEventListener('change',async e=>{
   let obj;
   try{obj=JSON.parse(await f.text());}catch(_){obj=null;}
   if(!obj||obj.app!=='shot-timer'||!obj.data||!Array.isArray(obj.data.st_hist)){toast('To nie jest plik kopii zapasowej Shot Timer');return;}
+  if(!validBackup(obj.data)){toast('Plik kopii jest uszkodzony, dane zostają bez zmian');return;}
   const n=obj.data.st_hist.length,ns=Array.isArray(obj.data.st_shooters)?obj.data.st_shooters.length:0,w=obj.exported?new Date(obj.exported):null;
   if(!confirm(`Przywrócić kopię${w&&!isNaN(w)?' z '+dayName(w.getTime())+' '+w.getFullYear():''}?\n\nZawiera ${ns} ${plural(ns,'strzelca','strzelców','strzelców')} i ${n} ${plural(n,'serię','serie','serii')}. Obecne dane w aplikacji zostaną zastąpione.`))return;
   try{
