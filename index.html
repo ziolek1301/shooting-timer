@@ -780,6 +780,15 @@ function beep(at,freq,dur){
   g.gain.linearRampToValueAtTime(0,at+dur);
   o.connect(g);g.connect(ctx.destination);
   o.start(at);o.stop(at+dur+0.03);
+  return {o,g,at};
+}
+// Cancel beeps that are scheduled but have not started yet (e.g. start or PAR beep after Stop).
+function cancelPendingBeeps(s){
+  if(!ctx||!s||!s.beeps)return;
+  s.beeps.filter(b=>b.at>ctx.currentTime).forEach(b=>{
+    try{b.g.disconnect();}catch(e){}
+    try{b.o.stop();}catch(e){}
+  });
 }
 
 function tone(t,f,len,peak,type,attack){
@@ -1225,10 +1234,10 @@ async function startStop(){
   const T=ctx.currentTime+d;
   const outLat=ctx.outputLatency||ctx.baseLatency||0;
   const BEEP=Math.max(0.1,cfg.beepMs/1000);
-  beep(T,cfg.beepHz,BEEP);
+  const beeps=[beep(T,cfg.beepHz,BEEP)];
   const day=ensureDay();
-  sess={state:'wait',dayId:day.id,T,beepAt:T+outLat,shots:[],target:Math.max(0,Math.round(cfg.shots)),idle:Math.max(0,Math.round(cfg.freeIdle)),mag:Math.max(0,Math.round(cfg.mag)),par:cfg.par,date:Date.now(),sid:activeShooter().id,sname:activeShooter().name,mutes:[[-0.03,BEEP+0.1]]};
-  if(cfg.par>0){beep(T+cfg.par,Math.max(1000,cfg.beepHz-900),BEEP);sess.mutes.push([cfg.par-0.03,cfg.par+BEEP+0.1]);}
+  sess={state:'wait',dayId:day.id,T,beepAt:T+outLat,shots:[],target:Math.max(0,Math.round(cfg.shots)),idle:Math.max(0,Math.round(cfg.freeIdle)),mag:Math.max(0,Math.round(cfg.mag)),par:cfg.par,date:Date.now(),sid:activeShooter().id,sname:activeShooter().name,mutes:[[-0.03,BEEP+0.1]],beeps};
+  if(cfg.par>0){beeps.push(beep(T+cfg.par,Math.max(1000,cfg.beepHz-900),BEEP));sess.mutes.push([cfg.par-0.03,cfg.par+BEEP+0.1]);}
   if(cfg.torchOn&&torchTrack)sess.to2=setTimeout(()=>torchPulse(300),Math.max(0,(T-ctx.currentTime)*1000-40));
   sess.to=setTimeout(()=>{if(sess&&sess.state==='wait'){sess.state='run';paintLcd();}flash();},(T-ctx.currentTime)*1000);
   try{if(navigator.wakeLock)wakeLock=await navigator.wakeLock.request('screen');}catch(e){}
@@ -1236,7 +1245,7 @@ async function startStop(){
   paintLcd();paintBtn();
 }
 function stopSession(){
-  clearTimeout(sess.to);clearTimeout(sess.to2);
+  clearTimeout(sess.to);clearTimeout(sess.to2);cancelPendingBeeps(sess);
   if(sess.shots.length)finish('stop');
   else{sess=null;releaseWake();paintLcd();paintBtn();}
 }
@@ -1246,7 +1255,7 @@ function fanfare(){
   [[784,0,0.12],[988,0.1,0.12],[1175,0.2,0.12],[1568,0.3,0.45]].forEach(([f,d,l])=>tone(t+d,f,l,v,'triangle'));
 }
 function finish(reason){
-  clearTimeout(sess.to);clearTimeout(sess.to2);
+  clearTimeout(sess.to);clearTimeout(sess.to2);cancelPendingBeeps(sess);
   sess.state='done';sess.endReason=reason||'shots';
   releaseWake();
   const h=load('st_hist',[]),n=sess.shots.length;
