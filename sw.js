@@ -17,10 +17,12 @@ async function pageFirst(req){
     if(res&&res.ok)cache.put('./index.html',res.clone());
     return res;
   });
+  net.catch(()=>{});
   const timeout=new Promise(resolve=>setTimeout(resolve,2500,null));
   try{
     const res=await Promise.race([net,timeout]);
-    if(res)return res;
+    // An error page (e.g. 404 while the site is unpublished) must not replace a working cached app.
+    if(res&&res.ok)return res;
   }catch(e){}
   const cached=await cache.match('./index.html');
   return cached||net;
