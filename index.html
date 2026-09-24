@@ -672,6 +672,7 @@ function micErrorText(e){
   if(n==='TimeoutError')return 'Mikrofon nie odpowiada. Zamknij aplikację całkowicie i otwórz ją ponownie.';
   return 'Nie udało się włączyć mikrofonu. Zamknij aplikację całkowicie i spróbuj ponownie.';
 }
+const MIC_TIMEOUT_MS=30000;
 const withTimeout=(p,ms)=>Promise.race([p,new Promise((_,rej)=>setTimeout(()=>{const e=new Error('timeout');e.name='TimeoutError';rej(e);},ms))]);
 function initAudio(){
   if(micPending)return micPending;
@@ -688,7 +689,12 @@ async function initAudioInner(){
   try{
     ctx=ctx||new (window.AudioContext||window.webkitAudioContext)({latencyHint:'interactive'});
     const resumeP=ctx.resume().catch(()=>{});
-    stream=await withTimeout(navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false,channelCount:1}}),12000);
+    const gum=navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false,channelCount:1}});
+    // If permission is granted after the timeout, stop that orphaned stream so the mic indicator goes off.
+    stream=await withTimeout(gum,MIC_TIMEOUT_MS).catch(e=>{
+      if(e.name==='TimeoutError')gum.then(s=>s.getTracks().forEach(t=>t.stop()),()=>{});
+      throw e;
+    });
     await resumeP;
   }catch(e){
     if(ctx&&IN_PREVIEW){
