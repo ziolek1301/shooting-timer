@@ -418,8 +418,8 @@ body.st-wait .lcd,body.st-run .lcd{box-shadow:0 0 0 4px rgba(255,255,255,.85),0 
       <h3 class="sheet-sub">Ustawienia wykrywania</h3>
       <p class="help">Strzał musi przekroczyć próg, przesterować mikrofon przez minimalny czas i narosnąć gwałtownie. Uderzenie magazynka zwykle nie spełnia drugiego warunku.</p>
       <div class="field range"><label for="f_thr">Próg głośności: <b id="thrVal"></b> dBFS<small>Bliżej 0 = tylko najgłośniejsze dźwięki</small></label><input id="f_thr" data-k="thrDb" type="range" min="-40" max="-1" step="1"></div>
-      <div class="field"><label for="f_clipms">Min. przesterowanie (ms)<small>Główny filtr na magazynek. Zwiększ, jeśli łapie zrzuty</small></label><input id="f_clipms" data-k="minClipMs" type="text" data-num="1" min="0" max="20" step="0.1" inputmode="decimal"></div>
-      <div class="field"><label for="f_clipdb">Poziom przesterowania (dBFS)<small>Od jakiej głośności próbka liczy się jako przesterowana</small></label><input id="f_clipdb" data-k="clipDb" type="text" data-num="1" min="-12" max="0" step="0.5" inputmode="decimal"></div>
+      <div class="field"><label for="f_clipms">Min. przesterowanie (ms)<small>Główny filtr na magazynek. Zwiększ, jeśli łapie zrzuty</small></label><input id="f_clipms" data-k="minClipMs" type="text" data-num="1" min="0" max="10" step="0.1" inputmode="decimal"></div>
+      <div class="field"><label for="f_clipdb">Poziom przesterowania (dBFS)<small>Od jakiej głośności próbka liczy się jako przesterowana</small></label><input id="f_clipdb" data-k="clipDb" type="text" data-num="1" min="-12" max="-0.5" step="0.5" inputmode="decimal"></div>
       <div class="field"><label for="f_rise">Maks. narastanie (ms)</label><input id="f_rise" data-k="maxRiseMs" type="text" data-num="1" min="0.2" max="20" step="0.1" inputmode="decimal"></div>
       <div class="field"><label for="f_dead">Czas martwy (ms)<small>Ignorowanie echa po strzale</small></label><input id="f_dead" data-step1="1" data-k="deadMs" type="text" data-num="1" min="20" max="500" step="5" inputmode="numeric"></div>
       <div class="field"><label for="f_corr">Korekta czasu (ms)<small>Dodawana do czasu 1. strzału, nie zmienia splitów</small></label><input id="f_corr" data-step1="1" data-k="corrMs" type="text" data-num="1" min="-500" max="500" step="1" inputmode="numeric"></div>
@@ -521,6 +521,22 @@ if(!savedCfg.cfgV||savedCfg.cfgV<2){
   if(savedCfg.free===true)cfg.shots=0;else cfg.freeIdle=0;
   delete cfg.free;cfg.cfgV=2;save('st_cfg',cfg);
 }
+// Keep only known settings of the right type, clamped to their input ranges, so a value from
+// an older version or an edited backup cannot silently break detection (e.g. thrDb:"abc").
+function sanitizeCfg(c){
+  const out=Object.keys(DEF).reduce((acc,k)=>{
+    const v=c[k],inp=document.querySelector(`[data-k="${k}"]`);
+    if(typeof v!==typeof DEF[k]||(typeof v==='number'&&!isFinite(v)))return acc;
+    if(inp&&inp.tagName==='SELECT'&&![...inp.options].some(o=>o.value===v))return acc;
+    if(typeof v==='number'&&inp){
+      const mn=parseFloat(inp.getAttribute('min')),mx=parseFloat(inp.getAttribute('max'));
+      return {...acc,[k]:Math.min(isNaN(mx)?v:mx,Math.max(isNaN(mn)?v:mn,v))};
+    }
+    return {...acc,[k]:v};
+  },{...DEF});
+  return ['instant','fixed','random'].includes(out.startMode)?out:{...out,startMode:DEF.startMode};
+}
+cfg=sanitizeCfg(cfg);
 const detCfg=()=>({thrDb:cfg.thrDb,clipDb:cfg.clipDb,minClipMs:cfg.minClipMs,maxRiseMs:cfg.maxRiseMs,deadMs:cfg.deadMs});
 
 const $=id=>document.getElementById(id);
