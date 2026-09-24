@@ -653,7 +653,7 @@ function capUpdate(){
 }
 
 /* ---------- audio ---------- */
-let ctx=null,stream=null,srcNode=null,node=null,sp=null,inLat=0,micOn=false,lastDb=-120,engine='';
+let ctx=null,stream=null,srcNode=null,node=null,sp=null,inLat=0,micOn=false,lastDb=-120,lastMeterAt=0,engine='';
 function pushCfg(){
   if(node)node.port.postMessage(detCfg());
   if(sp&&sp.det)sp.det.set(detCfg());
@@ -747,6 +747,32 @@ async function initAudioInner(){
   $('eng').textContent=`Silnik: ${engine}, ${ctx.sampleRate} Hz`;
   startLoop();
   return true;
+}
+const METER_FRESH_MS=300;
+function micAlive(){
+  const tr=stream&&stream.getAudioTracks()[0];
+  return !!ctx&&ctx.state==='running'&&!!tr&&tr.readyState==='live'&&!tr.muted;
+}
+async function meterFlowing(waitMs){
+  const t0=performance.now();
+  while(performance.now()-lastMeterAt>METER_FRESH_MS){
+    if(performance.now()-t0>waitMs)return false;
+    await new Promise(r=>setTimeout(r,50));
+  }
+  return true;
+}
+// Pre-flight before a series: after a call, Siri or another app iOS can leave the mic muted
+// or the audio clock frozen, which would give a series without a beep and without detection.
+async function audioReady(){
+  if(previewMode)return true;
+  if(micAlive()&&await meterFlowing(600))return true;
+  teardownMic();
+  if(ctx&&ctx.state!=='running'){try{await ctx.close();}catch(e){}ctx=null;}
+  if(!(await initAudio()))return false;
+  if(micAlive()&&await meterFlowing(1500))return true;
+  showMsg('Mikrofon przestał działać, na przykład po rozmowie telefonicznej. Zamknij aplikację całkowicie i otwórz ją ponownie.');
+  toast('Mikrofon nie działa');
+  return false;
 }
 function teardownMic(){
   if(!micOn)return;
@@ -1210,7 +1236,7 @@ async function torchPulse(ms){
 /* ---------- session ---------- */
 let sess=null,wakeLock=null;
 function onMsg(m){
-  if(m.type==='m'){lastDb=m.db;return;}
+  if(m.type==='m'){lastDb=m.db;lastMeterAt=performance.now();return;}
   let note='';
   if(sess&&(sess.state==='wait'||sess.state==='run')){
     const actual=m.t-inLat+cfg.corrMs/1000;
@@ -1240,6 +1266,7 @@ async function startSession(){
   closeSheet();
   if(!(await initAudio()))return;
   if(cfg.torchOn)await ensureTorch();
+  if(!(await audioReady()))return;
   let d;
   if(cfg.startMode==='instant')d=0.06;
   else if(cfg.startMode==='fixed')d=Math.max(0.3,cfg.dFixed);
