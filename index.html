@@ -700,8 +700,8 @@ async function initAudioInner(){
     if(ctx&&IN_PREVIEW){
       try{await ctx.resume();}catch(_){}
       previewMode=true;
-      showMsg('Tryb podglądu: mikrofon jest tu niedostępny. Stuknij w wyświetlacz, żeby dodać strzał. Na strzelnicy otwórz wersję z Netlify w Safari i zezwól na mikrofon.');
-      calStatus('W podglądzie mikrofon nie działa. Kalibrację zrobisz w wersji z Netlify.','err');
+      showMsg('Tryb podglądu: mikrofon jest tu niedostępny. Stuknij w wyświetlacz, żeby dodać strzał. Na strzelnicy otwórz aplikację z ekranu początkowego albo w Safari i zezwól na mikrofon.');
+      calStatus('W podglądzie mikrofon nie działa. Kalibrację zrobisz w aplikacji otwartej z ekranu początkowego albo w Safari.','err');
       $('eng').textContent='Tryb podglądu, bez mikrofonu';
       startLoop();
       return true;
@@ -1514,7 +1514,7 @@ $('logClear').addEventListener('click',()=>{logItems=[];renderLog();});
 $('micBtn').addEventListener('click',async()=>{
   const b=$('micBtn');
   if(micOn){teardownMic();calStatus('Nasłuch wyłączony.');return;}
-  if(previewMode){calStatus('W podglądzie mikrofon nie działa. Kalibrację zrobisz w wersji z Netlify.','err');return;}
+  if(previewMode){calStatus('W podglądzie mikrofon nie działa. Kalibrację zrobisz w aplikacji otwartej z ekranu początkowego albo w Safari.','err');return;}
   b.disabled=true;b.textContent='Łączenie z mikrofonem…';calStatus('Jeśli pojawi się pytanie o mikrofon, wybierz Zezwól.');
   const ok=await initAudio();
   b.disabled=false;
