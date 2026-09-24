@@ -574,7 +574,9 @@ function setTime(str){const v=parseFloat(str);segTime(isFinite(v)?fmtT(v):'');$(
 function setCount(n,target){segShot(String(Math.min(99,n)));$('lcdOf').textContent=target>0?'/'+target:'';}
 const setFirst=v=>segFirst(v===null||v===undefined?'':fmtT(v));
 const setSplit=v=>segSplit(v===null||v===undefined?'':fmtT(v));
+let micLit=-1;
 function setMicUI(on){
+  micLit=-1;
   $('lcdMicTxt').textContent=on?'':'MIC OFF';
   $('lcdMic').setAttribute('aria-label',on?'Mikrofon włączony':'Mikrofon wyłączony');
   if(!on)document.querySelectorAll('#lcdMic i').forEach(i=>i.classList.remove('on'));
@@ -1393,7 +1395,7 @@ function loop(){
     }
   }
   const db=Math.max(-60,lastDb),pct=((db+60)/60*100)+'%';
-  if(micOn){const lit=Math.max(0,Math.min(6,Math.ceil((db+60)/10)));document.querySelectorAll('#lcdMic i').forEach((b,i)=>b.classList.toggle('on',i<lit));}
+  if(micOn){const lit=Math.max(0,Math.min(6,Math.ceil((db+60)/10)));if(lit!==micLit){micLit=lit;document.querySelectorAll('#lcdMic i').forEach((b,i)=>b.classList.toggle('on',i<lit));}}
   if(sheetOpen&&curSec==='detect'){const cf=$('calFill');cf.style.width=pct;cf.classList.toggle('hot',lastDb>=cfg.thrDb);$('calDb').textContent='poziom: '+(lastDb<=-119?'-':lastDb.toFixed(0)+' dBFS');}
   requestAnimationFrame(loop);
 }
