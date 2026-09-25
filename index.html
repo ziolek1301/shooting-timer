@@ -261,7 +261,6 @@ details.panel.fresh{border-color:var(--lcd);box-shadow:0 0 18px color-mix(in srg
 .seg button{flex:1;padding:8px 10px;border:0;border-radius:9px;background:none;color:var(--muted);font:inherit;font-size:14px;font-weight:600;white-space:nowrap;cursor:pointer;transition:background-color .2s,color .2s}
 .seg button[aria-checked="true"]{background:var(--lcd);color:var(--lcd-ink)}
 .mode-name{margin:0 0 6px}
-.mode-name b{color:var(--text)}
 .start-help{margin:-2px 0 4px;min-height:1em}
 .end-hint{margin:6px 0;color:var(--gold)}
 .sh-opt{margin-top:12px;border-top:1px solid var(--line)}
@@ -329,7 +328,7 @@ body.st-wait .lcd,body.st-run .lcd{box-shadow:0 0 0 4px rgba(255,255,255,.85),0 
   <details class="panel" id="drillPanel">
     <summary><span class="ps-t">Ćwiczenie</span><span class="ps-m" id="drillSum"></span></summary>
     <div class="pbody">
-      <p class="help mode-name">Tryb <b>Free Shooting</b>. Każde ograniczenie poniżej jest opcjonalne, 0 je wyłącza.</p>
+      <p class="help mode-name">Każde ograniczenie poniżej jest opcjonalne, 0 je wyłącza.</p>
       <div class="field mode-row"><span class="mode-l">Start</span><div class="seg" id="startSeg" role="radiogroup" aria-label="Opóźnienie startu"><button type="button" role="radio" data-start="instant">Instant</button><button type="button" role="radio" data-start="fixed">Fixed</button><button type="button" role="radio" data-start="random">Random</button></div></div>
       <p class="help small start-help" id="startHelp"></p>
       <div class="field" data-start-mode="fixed"><label for="f_dfix">Opóźnienie (s)</label><input id="f_dfix" data-k="dFixed" type="text" data-num="1" min="0.3" max="15" step="0.5" inputmode="decimal"></div>
@@ -658,7 +657,8 @@ function drillSummary(){
   if(!parts.length)parts.push('bez limitów');
   if(m>0&&(n===0||m<n))parts.push(`magazynek ${m}`);
   parts.push(startSummary());
-  return 'Free Shooting: '+parts.join(', ');
+  const txt=parts.join(', ');
+  return txt.charAt(0).toUpperCase()+txt.slice(1);
 }
 function capUpdate(){
   const ds=$('drillSum');if(ds)ds.textContent=drillSummary();
